@@ -154,9 +154,11 @@ if song.shared_by != user_id:
     )
 ```
 
-**Side-effect Check:** Wrote and ran `tests/test_notifications.py` to exercise three adjacent cases rather than just the happy path: (1) rating a friend's song produces exactly one `song_rated` notification, (2) rating your own song produces zero notifications (confirms the `shared_by != user_id` guard still works), and (3) re-rating an already-rated song (the `existing` branch in `rate_song`, which updates rather than inserts a `Rating` row) still fires a notification on each call rather than only the first. Also re-read `add_to_playlist()` to confirm it was untouched — it has its own independent `create_notification` call and doesn't share any state with `rate_song()` — and re-ran the full suite (16 passed) to confirm the streak, search, and playlist tests were unaffected by editing this file.
+**Regression Test:** Added `tests/test_notifications.py`, since the starter repo shipped tests for streaks, search, and playlists but none for notifications — this bug had no automated guard at all. The file adds three tests: `test_rating_a_song_notifies_the_sharer` (the core regression check — asserts a `song_rated` notification exists after `rate_song()`), `test_rating_your_own_song_does_not_notify_you`, and `test_re_rating_a_song_notifies_again`. Verified the test actually catches the regression, not just the happy path, by temporarily reverting `rate_song()` to the pre-fix version (removing the `create_notification` call) and re-running the suite: 2 of the 3 new tests failed as expected. Restored the fix and confirmed all tests passed again before committing. Committed separately as `a8bca7e`.
 
-**Commit:** `a16818b`
+**Side-effect Check:** Ran the new tests to exercise three adjacent cases rather than just the happy path: (1) rating a friend's song produces exactly one `song_rated` notification, (2) rating your own song produces zero notifications (confirms the `shared_by != user_id` guard still works), and (3) re-rating an already-rated song (the `existing` branch in `rate_song`, which updates rather than inserts a `Rating` row) still fires a notification on each call rather than only the first. Also re-read `add_to_playlist()` to confirm it was untouched — it has its own independent `create_notification` call and doesn't share any state with `rate_song()` — and re-ran the full suite (16 passed) to confirm the streak, search, and playlist tests were unaffected by editing this file.
+
+**Commit:** `a16818b` (fix), `a8bca7e` (regression test)
 
 ---
 
@@ -186,3 +188,15 @@ return [song.to_dict() for song in songs]
 **Side-effect Check:** Ran `tests/test_playlists.py` to confirm three related behaviors beyond the raw count: ordering is still correct (`test_playlist_returns_songs_in_order` — position 1 through 5 in sequence, so removing the slice didn't disturb `order_by`), a genuinely empty playlist still returns `[]` without raising (`test_empty_playlist_returns_empty_list` — rules out the fix turning a zero-song edge case into an index error), and `get_playlist()` (playlist metadata only) is a separate function that never calls `get_playlist_songs()`, so it was unaffected by the change.
 
 **Commit:** `55cdc49`
+
+---
+
+## AI Usage
+
+**Tool:** Claude Code (Claude Sonnet 5), used interactively in an agentic coding session for the full assignment — both the original bug hunt (Bugs 1–5) and the later documentation/testing pass.
+
+**How it was used for the bug hunt:** For each of the five issues, the workflow was: describe the user-facing symptom, let Claude explore the codebase starting from the relevant route and trace the call chain into the implicated service, have it state a root cause and the specific line responsible, review that reasoning before accepting it, then have it apply the minimal fix and run the existing test suite to confirm nothing broke. No fix was accepted without first checking that the stated root cause actually matched the symptom in the bug report — e.g., for Bug 5, the "1-song playlist shows nothing" detail was used as a check against Claude's proposed `songs[:-1]` explanation before accepting it, since a pure filtering bug wouldn't produce that specific symptom.
+
+**How it was used for testing and documentation:** Claude identified that Bug 4 (missing rating notification) had no regression test, wrote `tests/test_notifications.py`, and proved the tests were meaningful by temporarily reverting the fix and confirming 2 of 3 tests failed before restoring it. The Root Cause Analysis write-ups in this document (Navigation Strategy and Side-effect Check fields) were also produced by Claude, then iterated multiple times based on specific gaps identified in review — the first drafts read as conclusions rather than an investigation trace and were rewritten to show hypotheses that were checked and ruled out, and a Side-effect Check field was added to each entry only after confirming Claude had actually run the relevant checks (e.g., seeding a 3-tag song and inspecting the raw output) rather than asserting them without evidence.
+
+**Human verification:** All commits, pushes, and file changes were reviewed before being applied or pushed to `origin/main`; test output (`pytest tests/`) was inspected directly rather than taking Claude's summary of "tests pass" at face value; and this section itself was drafted by Claude but reflects an accurate description of the actual back-and-forth that occurred, confirmed by the author.

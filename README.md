@@ -106,6 +106,20 @@ Understanding the full call chain is part of the exercise — don't skip to the 
 
 ---
 
+## Navigation Strategy
+
+For each bug, the exploration followed the same general pattern rather than jumping straight to the known-buggy file:
+
+1. **Start at the entry point, not the service.** Find the route in `routes/` that matches the reported user action, and confirm what it delegates to before assuming which service is at fault.
+2. **Let the symptom narrow the search.** Details in the bug report (which day it happens, which fields are affected, which sibling feature works correctly) usually rule out entire branches of a function before you have to read them.
+3. **Check existing tests first.** `tests/` shows which behaviors are already covered and which edge cases (day boundaries, empty results, positional slicing) were never exercised — a gap there is often adjacent to the bug.
+4. **Diff structurally similar code paths.** Where two functions are supposed to behave the same way (e.g. two actions that both trigger a notification), reading them side by side surfaces omissions faster than reading either one in isolation.
+5. **Read conditions literally.** Off-by-one slices and extra boolean clauses tend to hide in lines that look correct at a skim and only reveal themselves when read term-by-term.
+
+The full per-bug investigation trace — what was checked, ruled out, and what specific line confirmed the root cause — is documented in `submission.md` under **Root Cause Analysis**.
+
+---
+
 ## Submission
 
 Create a branch named `bugfix/mixtape` for your fixes. Each bug fix should be its own commit using conventional format:
